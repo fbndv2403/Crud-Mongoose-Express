@@ -3,53 +3,48 @@ const bcryptjs = require("bcryptjs");
 
 const Usuario = require("../models/usuario");
 
-const userGet = (req, res = response) => {
-  const query = req.query;
+const userGet = async (req = request, res = response) => {
+  const { limite = 5, desde = 0 } = req.query;
+  const query = { estado: true };
 
-  res.json({
-    msg: "get request - Controller",
-    query,
-  });
+  const [count, usuarios] = await Promise.all([
+    Usuario.countDocuments(query),
+    Usuario.find(query).limit(Number(limite)).skip(Number(desde)),
+  ]);
+  res.json({ count, usuarios });
 };
 
 const userPost = async (req = request, res = response) => {
   const { nombre, correo, password, rol } = req.body;
   const usuario = new Usuario({ nombre, correo, password, rol });
 
-  // Verificar si el correo existe
-  const existeEmail = await Usuario.findOne({ correo });
-  if (existeEmail) {
-    return res.status(404).json({
-      msg: `El correo ${usuario.correo} ya se encuentra registrado`,
-    });
-  }
-
-  // encriptar la contraseña
   const salt = bcryptjs.genSaltSync();
   usuario.password = bcryptjs.hashSync(password, salt);
 
-  // Guardar en base de dato
   await usuario.save();
-
-  res.json({
-    msg: "post request - Controller",
-    usuario,
-  });
+  res.json(usuario);
 };
 
-const userPut = (req, res = response) => {
-  const id = req.params.id;
+const userPut = async (req = request, res = response) => {
+  const { id } = req.params;
+  const { _id, password, google, correo, ...resto } = req.body;
 
-  res.json({
-    msg: "put request - Controller",
-    id,
-  });
+  if (password) {
+    const salt = bcryptjs.genSaltSync();
+    resto.password = bcryptjs.hashSync(password, salt);
+  }
+
+  const usuario = await Usuario.findByIdAndUpdate(id, resto);
+  res.json(usuario);
 };
 
-const userDelete = (req, res = response) => {
-  res.json({
-    msg: "delete request - Controller",
-  });
+const userDelete = async (req = request, res = response) => {
+  const { id } = req.params;
+  // Forma de eliminarlo permanentemene
+  // const usuario = await Usuario.findByIdAndDelete(id);
+  // Forma correcta de eliminar un usuario
+  const usuario = await Usuario.findByIdAndUpdate(id, { estado: false });
+  res.json(usuario);
 };
 
 module.exports = {
